@@ -1,6 +1,11 @@
 spring:
   application:
     name: ms08-analytics-and-audit
+  jackson:
+    deserialization:
+      # Unknown fields in a request body give 400 (audit contract, section 12).
+      # Spring Boot turns this off by default, so it is turned on here.
+      fail-on-unknown-properties: true
   mongodb:
     # Local default points to the docker compose in infra/. In production the URI is a secret
     # and comes only from the environment (never from the repository).

@@ -1,6 +1,5 @@
 package edu.eci.dosw.campusseguro.audit.dto;
 
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import edu.eci.dosw.campusseguro.audit.entity.AuditResult;
 import edu.eci.dosw.campusseguro.audit.entity.EventKind;
@@ -13,9 +12,9 @@ import java.util.Map;
 
 /**
  * Body of {@code POST /api/v1/audit/events} (API standards, section 12).
- * Unknown top-level fields are rejected with 400.
+ * Unknown top-level fields are rejected with 400 (see {@code spring.jackson.deserialization}
+ * in application.yml).
  */
-@JsonIgnoreProperties(ignoreUnknown = false)
 public record AuditEventRequest(
         @Pattern(regexp = AuditEventRequest.UUID, message = "Debe ser un UUID") String id,
         @JsonProperty("usuario_id")
