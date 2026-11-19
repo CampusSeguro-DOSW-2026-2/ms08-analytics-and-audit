@@ -33,12 +33,17 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     /** A rule was broken: answers with the status and code of the exception. */
     @ExceptionHandler(BusinessException.class)
     public ResponseEntity<Object> handleBusiness(BusinessException ex, HttpServletRequest request) {
+        // Only the status and the code are logged: the message may repeat values sent by the caller.
+        log.info("Request rejected: {} {} -> {} {}", request.getMethod(), request.getRequestURI(),
+                ex.code().status().value(), ex.code().codigo());
         return respond(ex.code(), ex.getMessage(), CorrelationIds.of(request), List.of());
     }
 
     /** A field breaks a business rule: 400 with the field as detail. */
     @ExceptionHandler(InvalidFieldException.class)
     public ResponseEntity<Object> handleInvalidField(InvalidFieldException ex, HttpServletRequest request) {
+        log.info("Request rejected: {} {} -> {} {} (field={})", request.getMethod(), request.getRequestURI(),
+                ex.code().status().value(), ex.code().codigo(), ex.field());
         return respond(ex.code(), ex.getMessage(), CorrelationIds.of(request),
                 List.of(new ErrorResponse.Detail(ex.field(), ex.getMessage())));
     }
@@ -58,6 +63,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     /** The user has no permission for the operation: 403. */
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<Object> handleAccessDenied(AccessDeniedException ex, HttpServletRequest request) {
+        log.warn("Forbidden request: {} {}", request.getMethod(), request.getRequestURI());
         return respond(ErrorCode.FORBIDDEN, ErrorCode.FORBIDDEN.defaultMessage(),
                 CorrelationIds.of(request), List.of());
     }
@@ -65,6 +71,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     /** Authentication is missing or invalid: 401. */
     @ExceptionHandler(AuthenticationException.class)
     public ResponseEntity<Object> handleAuthentication(AuthenticationException ex, HttpServletRequest request) {
+        log.warn("Unauthenticated request: {} {}", request.getMethod(), request.getRequestURI());
         return respond(ErrorCode.UNAUTHORIZED, ErrorCode.UNAUTHORIZED.defaultMessage(),
                 CorrelationIds.of(request), List.of());
     }
@@ -90,6 +97,9 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     protected ResponseEntity<Object> handleMethodArgumentNotValid(
             MethodArgumentNotValidException ex, HttpHeaders headers, HttpStatusCode status, WebRequest request) {
         List<ErrorResponse.Detail> details = new ArrayList<>();
+        log.info("Request rejected: {} -> 400 {} (invalid fields: {})", request.getDescription(false),
+                ErrorCode.VALIDATION_ERROR.codigo(),
+                ex.getBindingResult().getFieldErrors().stream().map(e -> e.getField()).toList());
         ex.getBindingResult().getFieldErrors()
                 .forEach(error -> details.add(new ErrorResponse.Detail(error.getField(), error.getDefaultMessage())));
         ex.getBindingResult().getGlobalErrors()
@@ -102,6 +112,8 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     @Override
     protected ResponseEntity<Object> handleHttpMessageNotReadable(
             HttpMessageNotReadableException ex, HttpHeaders headers, HttpStatusCode status, WebRequest request) {
+        log.info("Request rejected: {} -> 400 {} (body not readable)", request.getDescription(false),
+                ErrorCode.VALIDATION_ERROR.codigo());
         return respond(ErrorCode.VALIDATION_ERROR,
                 "El cuerpo de la solicitud falta, está mal formado o tiene valores no válidos",
                 correlationOf(request), List.of());
@@ -122,6 +134,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     protected ResponseEntity<Object> handleExceptionInternal(
             Exception ex, Object body, HttpHeaders headers, HttpStatusCode statusCode, WebRequest request) {
         ErrorCode code = ErrorCode.fromStatus(statusCode.value());
+        log.info("Request rejected: {} -> {} {}", request.getDescription(false), statusCode.value(), code.codigo());
         ErrorResponse response = new ErrorResponse(
                 statusCode.value(), code.codigo(), code.defaultMessage(), List.of(), correlationOf(request));
         return ResponseEntity.status(statusCode).headers(headers).body(response);

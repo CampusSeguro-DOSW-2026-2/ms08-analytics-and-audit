@@ -23,11 +23,15 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 /** Loads the events asked (permission checked for each one) and builds the comparison or the breakdown. */
 @Service
 public class EventAnalyticsServiceImpl implements EventAnalyticsService {
+
+    private static final Logger log = LoggerFactory.getLogger(EventAnalyticsServiceImpl.class);
 
     static final int MIN_COMPARE = 2;
     static final int MAX_EVENTS = 10;
@@ -50,6 +54,7 @@ public class EventAnalyticsServiceImpl implements EventAnalyticsService {
 
     @Override
     public EventComparisonResponse compare(List<String> eventIds, IndicatorVisibility visibility) {
+        long started = System.nanoTime();
         List<EventFactsLoader.EventFacts> events = loadAll(eventIds, visibility, MIN_COMPARE);
         Instant now = clock.instant();
         List<EventIndicatorsResponse> indicators = new ArrayList<>(events.stream()
@@ -67,11 +72,14 @@ public class EventAnalyticsServiceImpl implements EventAnalyticsService {
             rows.add(row);
             previous = row;
         }
+        log.info("Comparison computed: events={} facts={} ms={}", rows.size(), countFacts(events),
+                (System.nanoTime() - started) / 1_000_000);
         return new EventComparisonResponse(rows);
     }
 
     @Override
     public LocationAnalyticsResponse locations(List<String> eventIds, IndicatorVisibility visibility) {
+        long started = System.nanoTime();
         List<EventFactsLoader.EventFacts> events = loadAll(eventIds, visibility, 1);
         Map<String, PlaceTotal> totals = new LinkedHashMap<>();
         for (EventFactsLoader.EventFacts event : events) {
@@ -89,7 +97,13 @@ public class EventAnalyticsServiceImpl implements EventAnalyticsService {
                         .thenComparing(Location::ubicacionTipo)
                         .thenComparing(Location::ubicacionId))
                 .toList();
+        log.info("Locations computed: events={} places={} facts={} ms={}", events.size(), places.size(),
+                countFacts(events), (System.nanoTime() - started) / 1_000_000);
         return new LocationAnalyticsResponse(places);
+    }
+
+    private static int countFacts(List<EventFactsLoader.EventFacts> events) {
+        return events.stream().mapToInt(e -> e.facts().size()).sum();
     }
 
     /** Validates the list (UUIDs, no duplicates, size), loads each event and requires one single kind. */

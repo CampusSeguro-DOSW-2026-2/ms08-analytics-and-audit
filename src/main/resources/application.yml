@@ -28,6 +28,9 @@ management:
         enabled: false
 
 logging:
+  level:
+    # Level of this service's own logs; set LOG_LEVEL=DEBUG to see every stored fact.
+    edu.eci.dosw.campusseguro.audit: ${LOG_LEVEL:INFO}
   pattern:
     # Every log line shows the correlation id of the request.
     level: "%5p [%X{correlation_id:-}]"
