@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 /** Indicators per event. The permission needed depends on the kind of the event (drill or real). */
 @RestController
-@RequestMapping("/api/v1/audit/indicators")
+@RequestMapping("/api/v1/analytics")
 public class EventIndicatorController {
 
     private final EventIndicatorService service;
