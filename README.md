@@ -3,7 +3,7 @@
 Registra de forma inmutable los hechos que envían los microservicios, permite consultarlos y calcula indicadores por evento (simulacro o real).
 Puerto **8088**. Java 21, Spring Boot 4.1, MongoDB.
 
-> Estado: **paso 4 (consulta)**. Existen `POST` (ingesta) y `GET` (consulta) de `/api/v1/audit/events`; los indicadores vienen en los pasos 6 y 7.
+> Estado: ingesta, consulta, indicadores por evento, comparación y análisis por ubicación, con CI/CD preparado. Pendientes: crear la infraestructura en Azure (guía de despliegue) e integrar con los demás servicios (paso 10).
 > Contrato y decisiones: `ms08-analytics-and-audit/` en el repo `documentation` (ADR-001, `api/swagger.yml`).
 
 ## Requisitos
@@ -25,6 +25,7 @@ curl http://localhost:8088/actuator/health   # {"status":"UP"}
 | `AUDIT_RETENTION_DAYS` | `180` | Retención de la auditoría (6 meses) |
 | `APP_TIMEZONE` | `America/Bogota` | Zona horaria |
 | `AUDIT_TTL_INDEX_ENABLED` | `true` | Crea el índice TTL sobre `fecha_hora` (borrado automático a los 180 días) |
+| `LOG_LEVEL` | `INFO` | Nivel de los logs de este servicio (`DEBUG` muestra cada hecho guardado: id, módulo y acción) |
 | `AUDIT_CLEANUP_JOB_ENABLED` | `false` | Respaldo si la base no soporta TTL: job diario que borra lo vencido (poner también el TTL en `false`) |
 
 ## Seguridad
@@ -79,10 +80,60 @@ Ambas reciben los eventos como `evento_id` repetido (`?evento_id=a&evento_id=b`)
 - Los hechos sin `ubicacion_tipo` y `ubicacion_id` no se asignan a ningún lugar.
 - Ids repetidos (también en mayúsculas) cuentan una vez. 400 si quedan menos de 2 (1 en ubicaciones) o más de 10; 404 si un evento no tiene hechos; 403 si el permiso no corresponde al tipo.
 
+## Despliegue
+Igual que MS03–MS06 (VM con runner self-hosted, imagen en GHCR, Caddy con mTLS) pero con VM propia y base en Azure DocumentDB. Archivos: `.github/workflows/{ci,deploy,deploy-prod}.yml` e `infra/{deploy.sh,docker-compose.prod.yml,.env.example,releases.md,verify-documentdb.js}`. Pasos, costos y límites: *Guía de despliegue* (repo `documentation`).
+- Prueba: push a `develop` → CI → imagen `sha-xxxxxxx` → despliegue automático (con `CD_ENABLED=true`).
+- Producción: manual con *Desplegar a producción* (Environment `ms08-prod` con revisores).
+- Secreto del Environment: `MONGODB_URI`. Variable: `DEPLOY_DIR`.
+
 ## Estructura
-Igual que MS03/MS06: `config`, `security`, `exception` y, en los pasos siguientes, `controller`, `dto`, `entity`, `mapper`, `repository`, `service`. El `X-Correlation-ID` (`CorrelationIds`, `CorrelationIdFilter`) y `ErrorResponseWriter` están en `security`, como en MS03.
+Igual que MS03/MS06, con las implementaciones en `service/impl`:
+
+| Paquete | Contenido |
+|---------|-----------|
+| `config` | Seguridad, reloj, propiedades `app.audit`, índices de MongoDB, programación |
+| `security` | Lee las cabeceras del Gateway, `X-Correlation-ID`, permisos (`AuditVisibility`, `IndicatorVisibility`), respuestas 401/403 |
+| `exception` | Códigos de error, formato 7.1 y `GlobalExceptionHandler` |
+| `controller` / `dto` | `AuditEventController` (`/audit/events`), `EventIndicatorController` y `EventAnalyticsController` (`/analytics`) |
+| `entity` / `mapper` / `repository` | Colección `audit_events` (solo inserción) |
+| `service` | Interfaces, `EventFactsLoader` (carga y permiso por evento) y los calculadores de indicadores y ubicaciones |
+| `service/impl` | Ingesta, consulta, indicadores por evento y analítica entre eventos |
+| `scheduler` | Respaldo de retención si la base no soporta TTL |
 
 ## Pruebas
 ```bash
 mvn clean verify   # unitarias + integración (Docker) + cobertura JaCoCo >= 80 %
+```
+
+- Las pruebas de integración (`*IT`) arrancan su propio MongoDB con Testcontainers: hace falta Docker en marcha.
+- La compilación falla si la cobertura de líneas baja de 80 % (JaCoCo, regla `check`). El reporte queda en `target/site/jacoco/index.html`.
+- Los calculadores de indicadores se prueban con listas de hechos, sin base de datos (`EventIndicatorCalculatorTest`, `LocationAnalyticsCalculatorTest`).
+
+## Logs
+Cada línea lleva el `correlation_id` de la solicitud (`%5p [correlation_id]`), así que con ese valor se sigue una petición completa entre servicios.
+
+| Nivel | Qué se registra |
+|-------|-----------------|
+| `INFO` | Solicitudes rechazadas (4xx): método, ruta, estado, código y, si aplica, el **nombre** del campo inválido; índices listos al arrancar; borrados del job de retención; indicadores calculados (evento, tipo, cantidad de hechos, milisegundos) |
+| `WARN` | 401 y 403 (método y ruta) |
+| `ERROR` | Base de datos no disponible (503) y errores inesperados (500), con la traza |
+| `DEBUG` | Cada hecho guardado o repetido: solo `id`, `modulo` y `accion` |
+
+El código no escribe nunca: cuerpos de solicitud, `detalle`, `atributos`, el mensaje de error recibido, `usuario_id`, cabeceras ni la cadena de conexión (las trazas de los `ERROR` 500/503 las genera la librería y pueden traer mensajes internos: no se comparten fuera del equipo). Lo verifican `RequestRejectionLoggingTest`, `SecurityHandlersLoggingTest` y `AuditIngestionLoggingTest`.
+
+## Ejemplos con curl
+Detrás del Gateway estas cabeceras las pone el Gateway; en local se envían a mano.
+```bash
+# Ingesta (ruta Interna): solo con X-Service-Name
+curl -i -X POST http://localhost:8088/api/v1/audit/events \
+  -H "Content-Type: application/json" -H "X-Service-Name: ms04" \
+  -d '{"modulo":"MS04","accion":"REGISTRO_CHECKIN","resultado":"EXITO","fecha_hora":"2026-11-19T15:00:00Z","correlation_id":"demo-1","evento_id":"11111111-1111-4111-8111-111111111111","tipo_evento":"SIMULACRO","recurso_afectado":"checkin:abc","atributos":{"estado":"SAFE"}}'
+
+# Indicadores de un simulacro (ruta Protegida)
+curl -i http://localhost:8088/api/v1/analytics/events/11111111-1111-4111-8111-111111111111 \
+  -H "X-User-Id: 3f2a9c1e-7b4d-4e8a-9a55-0c1d2e3f4a5b" -H "X-User-Permission: ms08:indicators_drill:read"
+
+# Comparar dos simulacros
+curl -i "http://localhost:8088/api/v1/analytics/comparisons?evento_id=11111111-1111-4111-8111-111111111111&evento_id=22222222-2222-4222-8222-222222222222" \
+  -H "X-User-Id: 3f2a9c1e-7b4d-4e8a-9a55-0c1d2e3f4a5b" -H "X-User-Permission: ms08:indicators_drill:read"
 ```

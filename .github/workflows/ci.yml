@@ -1,25 +1,22 @@
-name: CI - calidad y contenedor
+name: CI - backend (calidad e imagen)
 
-# A push to develop is not listed here: deploy.yml calls this workflow (workflow_call) and then deploys,
-# so the tests do not run twice.
 on:
   push:
-    branches: [main]
+    branches: [main, develop]
   pull_request:
     branches: [main, develop]
   workflow_call:
 
-# Cancel an older run of the same branch when a new commit arrives.
-concurrency:
-  group: ci-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
-
 permissions:
   contents: read
 
+concurrency:
+  group: ci-backend-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   backend-quality:
-    name: Java - pruebas y cobertura
+    name: Java 21 - tests y cobertura
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -54,8 +51,9 @@ jobs:
             target/failsafe-reports/
           if-no-files-found: ignore
 
+  # Pull requests only check that the image builds; main and develop also publish it to GHCR.
   docker-image:
-    name: Imagen Docker (se publica en GHCR solo desde main)
+    name: Imagen Docker (se publica desde main y develop)
     needs: backend-quality
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -63,8 +61,7 @@ jobs:
       contents: read
       packages: write
     env:
-      # Only a push to main publishes the image; pull requests and develop only check that it builds.
-      PUBLISH: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+      PUBLISH: ${{ github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop') }}
     steps:
       - uses: actions/checkout@v4
 
@@ -78,21 +75,38 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # Same naming as MS03-MS06: <repo>-api:sha-<7 characters of the commit> (infra/deploy.sh expects it).
       - name: Identificadores de imagen
         id: meta
         shell: bash
         run: |
-          echo "base=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
-          echo "tag=sha-${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+          echo "image=ghcr.io/${GITHUB_REPOSITORY,,}-api" >> "$GITHUB_OUTPUT"
+          echo "tag=sha-${GITHUB_SHA:0:7}" >> "$GITHUB_OUTPUT"
 
-      - name: Construir (y publicar si es main)
+      - name: Construir (y publicar desde main y develop)
         uses: docker/build-push-action@v6
         with:
           context: .
           file: ./Dockerfile
           push: ${{ env.PUBLISH == 'true' }}
-          tags: |
-            ${{ steps.meta.outputs.base }}:${{ steps.meta.outputs.tag }}
-            ${{ steps.meta.outputs.base }}:latest
+          tags: ${{ steps.meta.outputs.image }}:${{ steps.meta.outputs.tag }}
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  # Automatic deploy to the test environment. It is switched on with the repository variable
+  # CD_ENABLED=true (Settings -> Secrets and variables -> Actions -> Variables) and needs the "ms08" runner.
+  deploy-test:
+    name: Desplegar en prueba
+    needs: docker-image
+    if: vars.CD_ENABLED == 'true' && github.event_name == 'push' && github.ref == 'refs/heads/develop'
+    uses: ./.github/workflows/deploy.yml
+    with:
+      entorno: test
+      ref: ${{ github.sha }}
+    permissions:
+      contents: read
+      packages: read
+    secrets: inherit

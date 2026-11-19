@@ -1,0 +1,48 @@
+name: Desplegar
+
+# Reusable workflow: deploys an image already published to GHCR on the MS08 VM, with the self-hosted runner
+# labelled "ms08" and the variables and secrets of the GitHub Environment ms08-<entorno>.
+# It is called by ci.yml (test) and by deploy-prod.yml.
+on:
+  workflow_call:
+    inputs:
+      entorno:
+        description: test o prod
+        type: string
+        required: true
+      ref:
+        description: Commit del que se toman los archivos de infra/
+        type: string
+        required: true
+      tag:
+        description: Imagen a desplegar (sha-xxxxxxx). Vacía = la del commit de ref.
+        type: string
+        required: false
+        default: ''
+
+jobs:
+  desplegar:
+    runs-on: [self-hosted, ms08]
+    environment: ms08-${{ inputs.entorno }}
+    timeout-minutes: 20
+    concurrency:
+      group: desplegar-ms08-${{ inputs.entorno }}
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: Desplegar y verificar
+        run: bash infra/deploy.sh
+        env:
+          ENTORNO: ${{ inputs.entorno }}
+          TAG: ${{ inputs.tag }}
+          GHCR_USER: ${{ github.actor }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DEPLOY_DIR: ${{ vars.DEPLOY_DIR }}
+          # Secret of the Environment: connection string of the DocumentDB cluster (one database per environment).
+          MONGODB_URI: ${{ secrets.MONGODB_URI }}
