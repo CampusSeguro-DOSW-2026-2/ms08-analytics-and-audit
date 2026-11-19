@@ -20,7 +20,7 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
 /** Indicators endpoint against a real MongoDB: permission by event kind, numbers and errors. */
 class EventIndicatorIT extends MongoIntegrationTest {
 
-    private static final String BASE = "/api/v1/audit/indicators/events/";
+    private static final String BASE = "/api/v1/analytics/events/";
     private static final String USER = "3f2a9c1e-7b4d-4e8a-9a55-0c1d2e3f4a5b";
     private static final String DRILL_EVENT = "11111111-1111-4111-8111-111111111111";
     private static final String REAL_EVENT = "22222222-2222-4222-8222-222222222222";
