@@ -1,5 +1,6 @@
 package edu.eci.dosw.campusseguro.audit.config;
 
+import edu.eci.dosw.campusseguro.audit.security.Authorities;
 import edu.eci.dosw.campusseguro.audit.security.GatewayAuthenticationFilter;
 import edu.eci.dosw.campusseguro.audit.security.RestAccessDeniedHandler;
 import edu.eci.dosw.campusseguro.audit.security.RestAuthenticationEntryPoint;
@@ -16,7 +17,7 @@ import org.springframework.security.web.authentication.AnonymousAuthenticationFi
 /**
  * MS08 runs behind the API Gateway: it trusts the identity headers the Gateway injects.
  * No JWT and no CORS here (the Gateway does both). Endpoint permissions are added with each
- * endpoint (steps 3 and 4); by default every route needs an identity.
+ * endpoint; by default every route needs an identity.
  */
 @Configuration
 @EnableMethodSecurity
@@ -37,6 +38,9 @@ public class SecurityConfig {
                 .authorizeHttpRequests(authorize -> authorize
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/error", "/actuator/health").permitAll()
+                        // Internal route: only other microservices (X-Service-Name) may send facts.
+                        .requestMatchers(HttpMethod.POST, "/api/v1/audit/events")
+                        .hasAuthority(Authorities.SERVICE)
                         .anyRequest().authenticated())
                 .exceptionHandling(handling -> handling
                         .authenticationEntryPoint(authenticationEntryPoint)

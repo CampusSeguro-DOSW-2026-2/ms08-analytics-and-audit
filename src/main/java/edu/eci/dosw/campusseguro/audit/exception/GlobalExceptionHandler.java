@@ -36,6 +36,13 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return respond(ex.code(), ex.getMessage(), CorrelationIds.of(request), List.of());
     }
 
+    /** A field breaks a business rule: 400 with the field as detail. */
+    @ExceptionHandler(InvalidFieldException.class)
+    public ResponseEntity<Object> handleInvalidField(InvalidFieldException ex, HttpServletRequest request) {
+        return respond(ex.code(), ex.getMessage(), CorrelationIds.of(request),
+                List.of(new ErrorResponse.Detail(ex.field(), ex.getMessage())));
+    }
+
     /** A parameter validation outside the request body failed: 400 with field details. */
     @ExceptionHandler(ConstraintViolationException.class)
     public ResponseEntity<Object> handleConstraintViolation(
