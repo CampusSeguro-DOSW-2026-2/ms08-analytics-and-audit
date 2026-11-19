@@ -1,5 +1,6 @@
 package edu.eci.dosw.campusseguro.audit.service.impl;
 
+import edu.eci.dosw.campusseguro.audit.service.AuditIngestionService;
 import edu.eci.dosw.campusseguro.audit.config.AuditProperties;
 import edu.eci.dosw.campusseguro.audit.dto.AuditEventRequest;
 import edu.eci.dosw.campusseguro.audit.entity.AuditEvent;

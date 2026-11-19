@@ -1,5 +1,8 @@
 package edu.eci.dosw.campusseguro.audit.service.impl;
 
+import edu.eci.dosw.campusseguro.audit.service.EventIndicatorService;
+import edu.eci.dosw.campusseguro.audit.service.EventFactsLoader;
+import edu.eci.dosw.campusseguro.audit.service.EventIndicatorCalculator;
 import edu.eci.dosw.campusseguro.audit.dto.EventIndicatorsResponse;
 import edu.eci.dosw.campusseguro.audit.security.IndicatorVisibility;
 import java.time.Clock;

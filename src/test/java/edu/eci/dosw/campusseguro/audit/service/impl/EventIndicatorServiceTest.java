@@ -1,5 +1,8 @@
-package edu.eci.dosw.campusseguro.audit.service;
+package edu.eci.dosw.campusseguro.audit.service.impl;
 
+import edu.eci.dosw.campusseguro.audit.service.EventIndicatorService;
+import edu.eci.dosw.campusseguro.audit.service.EventFactsLoader;
+import edu.eci.dosw.campusseguro.audit.service.EventIndicatorCalculator;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
@@ -36,7 +39,7 @@ class EventIndicatorServiceTest {
 
     private final AuditEventRepository repository = mock(AuditEventRepository.class);
     private final EventIndicatorService service = new EventIndicatorServiceImpl(
-            repository, new EventIndicatorCalculator(), Clock.fixed(NOW, ZoneOffset.UTC));
+            new EventFactsLoader(repository), new EventIndicatorCalculator(), Clock.fixed(NOW, ZoneOffset.UTC));
 
     private AuditEvent fact(EventKind kind) {
         return new AuditEvent("f1", null, "MS06", "EVENT_STARTED", "evento:" + EVENT, AuditResult.EXITO,

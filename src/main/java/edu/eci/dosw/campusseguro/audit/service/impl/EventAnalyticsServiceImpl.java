@@ -1,5 +1,9 @@
 package edu.eci.dosw.campusseguro.audit.service.impl;
 
+import edu.eci.dosw.campusseguro.audit.service.EventAnalyticsService;
+import edu.eci.dosw.campusseguro.audit.service.EventFactsLoader;
+import edu.eci.dosw.campusseguro.audit.service.EventIndicatorCalculator;
+import edu.eci.dosw.campusseguro.audit.service.LocationAnalyticsCalculator;
 import edu.eci.dosw.campusseguro.audit.dto.EventComparisonResponse;
 import edu.eci.dosw.campusseguro.audit.dto.EventComparisonResponse.Change;
 import edu.eci.dosw.campusseguro.audit.dto.EventComparisonResponse.Row;

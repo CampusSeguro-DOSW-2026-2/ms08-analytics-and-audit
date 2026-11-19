@@ -1,5 +1,6 @@
 package edu.eci.dosw.campusseguro.audit.service.impl;
 
+import edu.eci.dosw.campusseguro.audit.service.AuditQueryService;
 import edu.eci.dosw.campusseguro.audit.dto.AuditEventResponse;
 import edu.eci.dosw.campusseguro.audit.dto.AuditQuery;
 import edu.eci.dosw.campusseguro.audit.dto.PageResponse;
