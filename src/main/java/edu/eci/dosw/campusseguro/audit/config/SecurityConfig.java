@@ -46,7 +46,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/v1/audit/events", "/api/v1/audit/events/*")
                         .hasAnyAuthority(Authorities.AUDIT_DRILL_READ, Authorities.AUDIT_REAL_EVENT_READ)
                         // Indicators: one permission per kind of event; the service checks the kind of the event.
-                        .requestMatchers(HttpMethod.GET, "/api/v1/analytics/events/*")
+                        .requestMatchers(HttpMethod.GET, "/api/v1/analytics/events/*",
+                                "/api/v1/analytics/comparisons", "/api/v1/analytics/locations")
                         .hasAnyAuthority(Authorities.INDICATORS_DRILL_READ, Authorities.INDICATORS_REAL_EVENT_READ)
                         .anyRequest().authenticated())
                 .exceptionHandling(handling -> handling

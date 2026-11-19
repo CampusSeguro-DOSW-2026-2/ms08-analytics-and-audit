@@ -57,7 +57,7 @@ MS08 va detrás del API Gateway: no valida JWT ni hace CORS. Confía en las cabe
 - Detalle por `id`: 404 si no existe; 403 si su tipo no es legible por el usuario.
 
 ## Indicadores por evento
-`GET /api/v1/audit/indicators/events/{evento_id}` (ruta Protegida). Se calculan al consultar con los hechos del evento, así que incluyen los hechos que lleguen tarde. No hay colección de indicadores.
+`GET /api/v1/analytics/events/{evento_id}` (ruta Protegida). Se calculan al consultar con los hechos del evento, así que incluyen los hechos que lleguen tarde. No hay colección de indicadores.
 
 | Permiso | Eventos que puede consultar |
 |---------|-----------------------------|
@@ -70,6 +70,14 @@ MS08 va detrás del API Gateway: no valida JWT ni hace CORS. Confía en las cabe
 - Fuentes: MS03 (`NOTIFICATION_*`, `CONFIRM`), MS04 (`REGISTRO_CHECKIN`, `CAMBIO_ESTADO_CHECKIN`), MS05 (`CREAR_INCIDENTE`, `INICIAR_ATENCION`) y MS06 (`EVENT_STARTED`). Se identifica cada hecho por `modulo` + `accion`.
 - Sin `EVENT_STARTED` no hay tiempo hasta el check-in ni de evacuación (`null`); lo demás se calcula igual. Un check-in anterior al inicio no cuenta como tiempo de llegada.
 - Con varias alertas en el mismo evento los destinatarios se suman: si una persona está en dos alertas se cuenta dos veces.
+
+## Comparación y ubicaciones
+Ambas reciben los eventos como `evento_id` repetido (`?evento_id=a&evento_id=b`) o separado por comas, y usan los mismos permisos de indicadores que el endpoint por evento. Todos los eventos deben ser del mismo tipo (si no, 400).
+
+- `GET /api/v1/analytics/comparisons` compara de 2 a 10 eventos: una fila por evento, del inicio más antiguo al más reciente (los que no iniciaron, al final), con participación, confirmación, asistencia, incidentes, tiempos y `cambio_vs_anterior` (actual menos anterior; `null` si falta alguno de los dos valores).
+- `GET /api/v1/analytics/locations` suma de 1 a 10 eventos por edificio o zona (`ubicacion_tipo` + `ubicacion_id`): incidentes, solicitudes de asistencia (usuarios distintos en `NEEDS_ASSISTANCE`), tiempo medio hasta la primera atención y el detalle `por_evento`. Orden: el más lento primero; los lugares sin muestras, al final.
+- Los hechos sin `ubicacion_tipo` y `ubicacion_id` no se asignan a ningún lugar.
+- Ids repetidos (también en mayúsculas) cuentan una vez. 400 si quedan menos de 2 (1 en ubicaciones) o más de 10; 404 si un evento no tiene hechos; 403 si el permiso no corresponde al tipo.
 
 ## Estructura
 Igual que MS03/MS06: `config`, `security`, `exception` y, en los pasos siguientes, `controller`, `dto`, `entity`, `mapper`, `repository`, `service`. El `X-Correlation-ID` (`CorrelationIds`, `CorrelationIdFilter`) y `ErrorResponseWriter` están en `security`, como en MS03.
