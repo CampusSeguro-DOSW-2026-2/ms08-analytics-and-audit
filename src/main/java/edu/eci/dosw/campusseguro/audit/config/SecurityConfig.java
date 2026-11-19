@@ -45,6 +45,9 @@ public class SecurityConfig {
                         // to the kind each permission allows.
                         .requestMatchers(HttpMethod.GET, "/api/v1/audit/events", "/api/v1/audit/events/*")
                         .hasAnyAuthority(Authorities.AUDIT_DRILL_READ, Authorities.AUDIT_REAL_EVENT_READ)
+                        // Indicators: one permission per kind of event; the service checks the kind of the event.
+                        .requestMatchers(HttpMethod.GET, "/api/v1/audit/indicators/events/*")
+                        .hasAnyAuthority(Authorities.INDICATORS_DRILL_READ, Authorities.INDICATORS_REAL_EVENT_READ)
                         .anyRequest().authenticated())
                 .exceptionHandling(handling -> handling
                         .authenticationEntryPoint(authenticationEntryPoint)

@@ -56,6 +56,21 @@ MS08 va detrás del API Gateway: no valida JWT ni hace CORS. Confía en las cabe
 - Orden: más recientes primero. Respuesta: `contenido`, `page`, `size`, `total_elementos`, `total_paginas`.
 - Detalle por `id`: 404 si no existe; 403 si su tipo no es legible por el usuario.
 
+## Indicadores por evento
+`GET /api/v1/audit/indicators/events/{evento_id}` (ruta Protegida). Se calculan al consultar con los hechos del evento, así que incluyen los hechos que lleguen tarde. No hay colección de indicadores.
+
+| Permiso | Eventos que puede consultar |
+|---------|-----------------------------|
+| `ms08:indicators_drill:read` | Evento de tipo `SIMULACRO` |
+| `ms08:indicators_real_event:read` | Evento de tipo `REAL` |
+
+- 400 si el id no es UUID; 404 si MS08 no tiene hechos de ese evento; 403 si el permiso no corresponde al tipo del evento (los permisos de auditoría no sirven aquí).
+- Porcentajes de 0 a 100 con un decimal (`null` si no hay con qué dividir); tiempos en segundos (`null` si no hay muestras).
+- Solo cuentan los hechos con `resultado` `EXITO`; en las notificaciones (`NOTIFICATION_SENT`/`NOTIFICATION_FAILED`) cuentan ambos resultados.
+- Fuentes: MS03 (`NOTIFICATION_*`, `CONFIRM`), MS04 (`REGISTRO_CHECKIN`, `CAMBIO_ESTADO_CHECKIN`), MS05 (`CREAR_INCIDENTE`, `INICIAR_ATENCION`) y MS06 (`EVENT_STARTED`). Se identifica cada hecho por `modulo` + `accion`.
+- Sin `EVENT_STARTED` no hay tiempo hasta el check-in ni de evacuación (`null`); lo demás se calcula igual. Un check-in anterior al inicio no cuenta como tiempo de llegada.
+- Con varias alertas en el mismo evento los destinatarios se suman: si una persona está en dos alertas se cuenta dos veces.
+
 ## Estructura
 Igual que MS03/MS06: `config`, `security`, `exception` y, en los pasos siguientes, `controller`, `dto`, `entity`, `mapper`, `repository`, `service`. El `X-Correlation-ID` (`CorrelationIds`, `CorrelationIdFilter`) y `ErrorResponseWriter` están en `security`, como en MS03.
 
