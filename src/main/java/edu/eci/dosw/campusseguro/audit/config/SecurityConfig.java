@@ -41,6 +41,10 @@ public class SecurityConfig {
                         // Internal route: only other microservices (X-Service-Name) may send facts.
                         .requestMatchers(HttpMethod.POST, "/api/v1/audit/events")
                         .hasAuthority(Authorities.SERVICE)
+                        // Reading needs one of the two audit permissions; the service narrows the result
+                        // to the kind each permission allows.
+                        .requestMatchers(HttpMethod.GET, "/api/v1/audit/events", "/api/v1/audit/events/*")
+                        .hasAnyAuthority(Authorities.AUDIT_DRILL_READ, Authorities.AUDIT_REAL_EVENT_READ)
                         .anyRequest().authenticated())
                 .exceptionHandling(handling -> handling
                         .authenticationEntryPoint(authenticationEntryPoint)

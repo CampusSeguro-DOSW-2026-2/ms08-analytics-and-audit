@@ -1,6 +1,7 @@
 package edu.eci.dosw.campusseguro.audit.mapper;
 
 import edu.eci.dosw.campusseguro.audit.dto.AuditEventRequest;
+import edu.eci.dosw.campusseguro.audit.dto.AuditEventResponse;
 import edu.eci.dosw.campusseguro.audit.entity.AuditEvent;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -37,6 +38,24 @@ public class AuditEventMapper {
                 request.tipoEvento(),
                 request.atributos() == null ? null : new LinkedHashMap<String, Object>(request.atributos()),
                 origin);
+    }
+
+    /** Record as it is shown to the user (the origin service name is not part of the answer). */
+    public AuditEventResponse toResponse(AuditEvent event) {
+        return new AuditEventResponse(
+                event.id(),
+                event.usuarioId(),
+                event.modulo(),
+                event.accion(),
+                event.recursoAfectado(),
+                event.resultado(),
+                event.fechaHora(),
+                event.recibidoEn(),
+                event.correlationId(),
+                event.detalle(),
+                event.eventoId(),
+                event.tipoEvento(),
+                event.atributos());
     }
 
     /**
