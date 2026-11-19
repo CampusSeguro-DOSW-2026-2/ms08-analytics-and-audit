@@ -1,4 +1,4 @@
-package edu.eci.dosw.campusseguro.audit.service;
+package edu.eci.dosw.campusseguro.audit.service.impl;
 
 import edu.eci.dosw.campusseguro.audit.dto.AuditEventResponse;
 import edu.eci.dosw.campusseguro.audit.dto.AuditQuery;

@@ -151,6 +151,38 @@ public class EventIndicatorCalculator {
         TimeStat evacuation = start == null ? stat(List.of()) : stat(since(start, firstSafe.values()));
 
         // Time to first attention: INICIAR_ATENCION minus CREAR_INCIDENTE of the same incident.
+        List<AttentionSample> samples = attentionSamples(facts);
+        List<Long> attentionTimes = samples.stream().map(AttentionSample::seconds).toList();
+        Map<String, List<Long>> byLocation = new LinkedHashMap<>();
+        Map<String, String[]> locationKeys = new HashMap<>();
+        for (AttentionSample sample : samples) {
+            if (sample.ubicacionTipo() != null && sample.ubicacionId() != null) {
+                String key = sample.ubicacionTipo() + ":" + sample.ubicacionId();
+                byLocation.computeIfAbsent(key, k -> new java.util.ArrayList<>()).add(sample.seconds());
+                locationKeys.put(key, new String[] {sample.ubicacionTipo(), sample.ubicacionId()});
+            }
+        }
+        List<SlowLocation> slow = byLocation.entrySet().stream()
+                .map(e -> new SlowLocation(locationKeys.get(e.getKey())[0], locationKeys.get(e.getKey())[1],
+                        round(average(e.getValue())), e.getValue().size()))
+                .sorted(Comparator.comparingDouble(SlowLocation::promedioSegundos).reversed()
+                        .thenComparing(SlowLocation::ubicacionTipo)
+                        .thenComparing(SlowLocation::ubicacionId))
+                .limit(MAX_SLOW_LOCATIONS)
+                .toList();
+        return new ResponseTimes(toCheckin, evacuation, stat(attentionTimes), slow);
+    }
+
+    /** Time from the report of an incident to its first attention, with the place it was reported at. */
+    public record AttentionSample(String ubicacionTipo, String ubicacionId, long seconds) {
+    }
+
+    /**
+     * One sample per attended incident: the earliest INICIAR_ATENCION minus the earliest CREAR_INCIDENTE of
+     * the same resource. Negative times (clock differences) and incidents never reported are left out.
+     * The place comes from the report, or from the attention when the report has none.
+     */
+    public List<AttentionSample> attentionSamples(Collection<AuditEvent> facts) {
         Map<String, AuditEvent> created = new HashMap<>();
         for (AuditEvent fact : successful(facts, "MS05", Set.of("CREAR_INCIDENTE"))) {
             if (fact.recursoAfectado() != null) {
@@ -163,36 +195,19 @@ public class EventIndicatorCalculator {
                 attended.merge(fact.recursoAfectado(), fact, (a, b) -> BY_TIME.compare(a, b) <= 0 ? a : b);
             }
         }
-        List<Long> attentionTimes = new java.util.ArrayList<>();
-        Map<String, List<Long>> byLocation = new LinkedHashMap<>();
-        Map<String, String[]> locationKeys = new HashMap<>();
+        List<AttentionSample> samples = new java.util.ArrayList<>();
         for (Map.Entry<String, AuditEvent> entry : attended.entrySet()) {
             AuditEvent open = created.get(entry.getKey());
             if (open == null) {
                 continue;
             }
             long seconds = Duration.between(open.fechaHora(), entry.getValue().fechaHora()).getSeconds();
-            if (seconds < 0) {
-                continue;
-            }
-            attentionTimes.add(seconds);
-            String type = firstText("ubicacion_tipo", open, entry.getValue());
-            String id = firstText("ubicacion_id", open, entry.getValue());
-            if (type != null && id != null) {
-                String key = type + ":" + id;
-                byLocation.computeIfAbsent(key, k -> new java.util.ArrayList<>()).add(seconds);
-                locationKeys.put(key, new String[] {type, id});
+            if (seconds >= 0) {
+                samples.add(new AttentionSample(firstText("ubicacion_tipo", open, entry.getValue()),
+                        firstText("ubicacion_id", open, entry.getValue()), seconds));
             }
         }
-        List<SlowLocation> slow = byLocation.entrySet().stream()
-                .map(e -> new SlowLocation(locationKeys.get(e.getKey())[0], locationKeys.get(e.getKey())[1],
-                        round(average(e.getValue())), e.getValue().size()))
-                .sorted(Comparator.comparingDouble(SlowLocation::promedioSegundos).reversed()
-                        .thenComparing(SlowLocation::ubicacionTipo)
-                        .thenComparing(SlowLocation::ubicacionId))
-                .limit(MAX_SLOW_LOCATIONS)
-                .toList();
-        return new ResponseTimes(toCheckin, evacuation, stat(attentionTimes), slow);
+        return samples;
     }
 
     private static final java.util.function.BinaryOperator<Instant> BEFORE =
