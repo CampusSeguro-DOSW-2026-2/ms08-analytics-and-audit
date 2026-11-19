@@ -7,11 +7,11 @@ public final class Authorities {
     public static final String SERVICE = "SERVICE";
 
     /** Audit of drills (SIMULACRO). */
-    public static final String AUDIT_DRILL_READ = "ms08:audit:drill:read";
+    public static final String AUDIT_DRILL_READ = "ms08:audit_drill:read";
     /** Audit of real events (REAL). */
-    public static final String AUDIT_REAL_EVENT_READ = "ms08:audit:real_event:read";
-    public static final String INDICATORS_DRILL_READ = "ms08:indicators:drill:read";
-    public static final String INDICATORS_REAL_EVENT_READ = "ms08:indicators:real_event:read";
+    public static final String AUDIT_REAL_EVENT_READ = "ms08:audit_real_event:read";
+    public static final String INDICATORS_DRILL_READ = "ms08:indicators_drill:read";
+    public static final String INDICATORS_REAL_EVENT_READ = "ms08:indicators_real_event:read";
 
     private Authorities() {
     }
