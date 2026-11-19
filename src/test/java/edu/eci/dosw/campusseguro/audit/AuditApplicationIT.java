@@ -7,31 +7,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
-import org.testcontainers.mongodb.MongoDBContainer;
 
-/**
- * Starts the whole application against a real MongoDB (Docker, via Testcontainers) and checks
- * the base behavior: health, 401 in the standard format and the correlation id.
- */
-@SpringBootTest
-@AutoConfigureMockMvc
-class AuditApplicationIT {
-
-    private static final MongoDBContainer MONGO = new MongoDBContainer("mongo:7");
-
-    static {
-        MONGO.start();
-    }
-
-    @DynamicPropertySource
-    static void database(DynamicPropertyRegistry registry) {
-        registry.add("spring.mongodb.uri", () -> MONGO.getConnectionString() + "/audit_test");
-    }
+/** Base behavior against a real MongoDB: health, 401 in the standard format and the correlation id. */
+class AuditApplicationIT extends MongoIntegrationTest {
 
     @Autowired
     private MockMvc mockMvc;
@@ -55,9 +34,8 @@ class AuditApplicationIT {
     }
 
     @Test
-    void aValidUserPassesTheSecurityLayer() throws Exception {
-        // No endpoint exists yet (step 3), so an authenticated request reaches the 404 answer.
-        mockMvc.perform(get("/api/v1/audit/events")
+    void anAuthenticatedUserOnAnUnknownRouteGets404InTheStandardFormat() throws Exception {
+        mockMvc.perform(get("/api/v1/no-such-route")
                         .header("X-User-Id", "3f2a9c1e-7b4d-4e8a-9a55-0c1d2e3f4a5b")
                         .header("X-User-Permission", "ms08:audit_drill:read"))
                 .andExpect(status().isNotFound())
