@@ -32,6 +32,9 @@ MS08 va detrás del API Gateway: no valida JWT ni hace CORS. Confía en las cabe
 - Sin cabeceras → 401. Cabeceras inválidas → 401. Sin permiso → 403.
 - Errores en formato 7.1 `{status, codigo, mensaje, errores, correlation_id}`.
 
+## Estructura
+Igual que MS03/MS06: `config`, `security`, `exception` y, en los pasos siguientes, `controller`, `dto`, `entity`, `mapper`, `repository`, `service`. El `X-Correlation-ID` (`CorrelationIds`, `CorrelationIdFilter`) y `ErrorResponseWriter` están en `security`, como en MS03.
+
 ## Pruebas
 ```bash
 mvn clean verify   # unitarias + integración (Docker) + cobertura JaCoCo >= 80 %
