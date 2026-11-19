@@ -1,0 +1,38 @@
+spring:
+  application:
+    name: ms08-analytics-and-audit
+  mongodb:
+    # Local default points to the docker compose in infra/. In production the URI is a secret
+    # and comes only from the environment (never from the repository).
+    uri: ${MONGODB_URI:mongodb://localhost:27017/campusseguro_audit}
+  jackson:
+    # Unknown fields in a request body are rejected (audit contract, section 12).
+    deserialization:
+      fail-on-unknown-properties: true
+
+server:
+  port: ${SERVER_PORT:8088}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        # Only the health check is public (the Gateway integration guide asks for it).
+        include: health
+  endpoint:
+    health:
+      show-details: never
+      # The Gateway standards ask for exactly {"status":"UP"} (no "groups" field).
+      probes:
+        enabled: false
+
+logging:
+  pattern:
+    # Every log line shows the correlation id of the request.
+    level: "%5p [%X{correlation_id:-}]"
+
+app:
+  timezone: ${APP_TIMEZONE:America/Bogota}
+  audit:
+    # Audit records are kept 6 months (used by the TTL index created in step 3).
+    retention-days: ${AUDIT_RETENTION_DAYS:180}
