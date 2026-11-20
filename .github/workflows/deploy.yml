@@ -44,5 +44,10 @@ jobs:
           GHCR_USER: ${{ github.actor }}
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           DEPLOY_DIR: ${{ vars.DEPLOY_DIR }}
-          # Secret of the Environment: connection string of the DocumentDB cluster (one database per environment).
+          # Secret of the Environment: connection string of the MongoDB database (one database per environment).
           MONGODB_URI: ${{ secrets.MONGODB_URI }}
+          # Optional variables of the Environment (empty = default in infra/deploy.sh).
+          LOG_LEVEL: ${{ vars.LOG_LEVEL }}
+          AUDIT_TTL_INDEX_ENABLED: ${{ vars.AUDIT_TTL_INDEX_ENABLED }}
+          AUDIT_CLEANUP_JOB_ENABLED: ${{ vars.AUDIT_CLEANUP_JOB_ENABLED }}
+          MS08_EXTRA_ENV: ${{ vars.MS08_EXTRA_ENV }}
