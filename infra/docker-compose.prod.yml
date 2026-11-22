@@ -1,0 +1,33 @@
+# MS08 stack in the cloud: one per environment on the same VM (ms08-prod and ms08-test).
+# There is no database container: MS08 uses the Azure DocumentDB cluster (MONGODB_URI).
+# It publishes no ports: only the VM's edge Caddy (network campus-edge) reaches MS08, with the alias
+# ms08-<environment>. infra/deploy.sh uses it with the .env it writes in DEPLOY_DIR/<environment>;
+# it is not run by hand.
+name: ms08-${ENTORNO:?ENTORNO es obligatoria (test o prod)}
+
+services:
+  ms08:
+    image: ${IMAGE:?IMAGE es obligatoria}:${TAG:?TAG es obligatoria (sha-xxxxxxx)}
+    restart: unless-stopped
+    environment:
+      SERVER_PORT: "8088"
+      MONGODB_URI: ${MONGODB_URI:?MONGODB_URI es obligatoria}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      # DocumentDB supports the TTL index: MongoDB deletes records older than 180 days by itself.
+      # If infra/verify-documentdb.js shows it does not, use AUDIT_TTL_INDEX_ENABLED=false and
+      # AUDIT_CLEANUP_JOB_ENABLED=true in extra.env (see the deployment guide).
+      AUDIT_TTL_INDEX_ENABLED: ${AUDIT_TTL_INDEX_ENABLED:-true}
+      AUDIT_CLEANUP_JOB_ENABLED: ${AUDIT_CLEANUP_JOB_ENABLED:-false}
+    # Optional variables of the environment (for example AUDIT_RETENTION_DAYS).
+    env_file:
+      - path: extra.env
+        required: false
+    networks:
+      edge:
+        aliases:
+          - ms08-${ENTORNO}
+
+networks:
+  edge:
+    name: campus-edge
+    external: true

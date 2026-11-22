@@ -1,0 +1,15 @@
+package edu.eci.dosw.campusseguro.audit;
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.context.properties.ConfigurationPropertiesScan;
+
+/** MS08 - Audit and analytics. Entry point. */
+@SpringBootApplication
+@ConfigurationPropertiesScan
+public class AuditApplication {
+
+    public static void main(String[] args) {
+        SpringApplication.run(AuditApplication.class, args);
+    }
+}
