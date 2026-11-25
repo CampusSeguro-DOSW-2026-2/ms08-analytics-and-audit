@@ -13,6 +13,9 @@ import edu.eci.dosw.campusseguro.audit.mapper.AuditEventMapper;
 import edu.eci.dosw.campusseguro.audit.repository.AuditEventRepository;
 import edu.eci.dosw.campusseguro.audit.repository.AuditEventSearchRepository;
 import edu.eci.dosw.campusseguro.audit.security.AuditVisibility;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Locale;
 import java.util.regex.Pattern;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -28,6 +31,8 @@ public class AuditQueryServiceImpl implements AuditQueryService {
     static final int DEFAULT_SIZE = 20;
     static final int MAX_SIZE = 100;
     private static final int MAX_TEXT = 200;
+    /** Máximo de personas o eventos en un mismo filtro (usuario_id y evento_id aceptan varios separados por coma). */
+    private static final int MAX_IDS = 100;
     private static final Pattern MODULE = Pattern.compile("^MS0[1-8]$");
     private static final Pattern ACTION = Pattern.compile("^[A-Z][A-Z0-9_]*$");
     private static final Pattern UUID = Pattern.compile(
@@ -90,8 +95,8 @@ public class AuditQueryServiceImpl implements AuditQueryService {
         }
         addIfPresent(query, "modulo", filter.modulo());
         addIfPresent(query, "accion", filter.accion());
-        addIfPresent(query, "usuarioId", lower(filter.usuarioId()));
-        addIfPresent(query, "eventoId", lower(filter.eventoId()));
+        addAnyOf(query, "usuarioId", filter.usuarioId());
+        addAnyOf(query, "eventoId", filter.eventoId());
         addIfPresent(query, "recursoAfectado", filter.recursoAfectado());
         addIfPresent(query, "correlationId", filter.correlationId());
         if (filter.desde() != null || filter.hasta() != null) {
@@ -114,8 +119,8 @@ public class AuditQueryServiceImpl implements AuditQueryService {
         if (query.accion() != null && !ACTION.matcher(query.accion()).matches()) {
             throw new InvalidFieldException("accion", "Debe estar en MAYÚSCULAS con guion bajo");
         }
-        requireUuid("usuario_id", query.usuarioId());
-        requireUuid("evento_id", query.eventoId());
+        requireUuids("usuario_id", query.usuarioId());
+        requireUuids("evento_id", query.eventoId());
         requireMaxLength("recurso_afectado", query.recursoAfectado());
         requireMaxLength("correlation_id", query.correlationId());
         if (query.desde() != null && query.hasta() != null && query.desde().isAfter(query.hasta())) {
@@ -129,10 +134,32 @@ public class AuditQueryServiceImpl implements AuditQueryService {
         }
     }
 
-    private void requireUuid(String field, String value) {
-        if (value != null && !UUID.matcher(value).matches()) {
+    /** Uno o varios UUID separados por coma (la búsqueda por nombre en el front puede coincidir con varios). */
+    private void requireUuids(String field, String value) {
+        if (value == null) {
+            return;
+        }
+        List<String> ids = ids(value);
+        if (ids.isEmpty() || ids.size() > MAX_IDS) {
+            throw new InvalidFieldException(field, "Debe tener entre 1 y " + MAX_IDS + " UUID separados por coma");
+        }
+        if (ids.stream().anyMatch(id -> !UUID.matcher(id).matches())) {
             throw new InvalidFieldException(field, "Debe ser un UUID");
         }
+    }
+
+    private static List<String> ids(String value) {
+        return Arrays.stream(value.split(",")).map(String::trim).filter(id -> !id.isEmpty())
+                .map(id -> id.toLowerCase(Locale.ROOT)).distinct().toList();
+    }
+
+    /** Igual al valor si es uno solo; cualquiera de la lista si son varios. */
+    private void addAnyOf(Query query, String property, String value) {
+        if (value == null || value.isBlank()) {
+            return;
+        }
+        List<String> ids = ids(value);
+        query.addCriteria(ids.size() == 1 ? Criteria.where(property).is(ids.get(0)) : Criteria.where(property).in(ids));
     }
 
     private void requireMaxLength(String field, String value) {
@@ -145,10 +172,6 @@ public class AuditQueryServiceImpl implements AuditQueryService {
         if (value != null && !value.isBlank()) {
             query.addCriteria(Criteria.where(property).is(value));
         }
-    }
-
-    private String lower(String value) {
-        return value == null ? null : value.toLowerCase();
     }
 
     private void requireAnyPermission(AuditVisibility visibility) {

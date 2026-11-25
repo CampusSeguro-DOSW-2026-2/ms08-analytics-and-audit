@@ -128,6 +128,42 @@ class AuditQueryServiceTest {
     }
 
     @Test
+    void aSingleUserIdIsAnExactMatchInLowerCase() {
+        emptyResult();
+
+        service.search(new AuditQuery(null, null, "AAAAAAAA-AAAA-4AAA-8AAA-AAAAAAAAAAAA", null, null, null, null, null, null, null, null), BOTH);
+
+        ArgumentCaptor<Query> captor = ArgumentCaptor.forClass(Query.class);
+        verify(searchRepository).search(captor.capture(), any(Pageable.class));
+        assertEquals("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", captor.getValue().getQueryObject().get("usuarioId"));
+    }
+
+    @Test
+    void severalUserAndEventIdsMatchAnyOfThem() {
+        emptyResult();
+        String a = "11111111-1111-4111-8111-111111111111";
+        String b = "22222222-2222-4222-8222-222222222222";
+
+        service.search(new AuditQuery(null, null, a + "," + b, b + ", " + a, null, null, null, null, null, null, null), BOTH);
+
+        ArgumentCaptor<Query> captor = ArgumentCaptor.forClass(Query.class);
+        verify(searchRepository).search(captor.capture(), any(Pageable.class));
+        org.bson.Document usuarios = (org.bson.Document) captor.getValue().getQueryObject().get("usuarioId");
+        org.bson.Document eventos = (org.bson.Document) captor.getValue().getQueryObject().get("eventoId");
+        assertEquals(List.of(a, b), usuarios.get("$in"));
+        assertEquals(List.of(b, a), eventos.get("$in"));
+    }
+
+    @Test
+    void rejectsAListWithAnInvalidIdOrTooManyIds() {
+        String valido = "11111111-1111-4111-8111-111111111111";
+        assertInvalid("usuario_id", new AuditQuery(null, null, valido + ",abc", null, null, null, null, null, null, null, null));
+        String muchos = String.join(",", java.util.stream.IntStream.range(0, 101)
+                .mapToObj(i -> String.format("00000000-0000-4000-8000-%012d", i)).toList());
+        assertInvalid("evento_id", new AuditQuery(null, null, null, muchos, null, null, null, null, null, null, null));
+    }
+
+    @Test
     void rejectsInvalidFilters() {
         assertInvalid("modulo", new AuditQuery("XX", null, null, null, null, null, null, null, null, null, null));
         assertInvalid("accion", new AuditQuery(null, "login", null, null, null, null, null, null, null, null, null));
