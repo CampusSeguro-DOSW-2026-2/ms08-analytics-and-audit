@@ -1,0 +1,23 @@
+name: Desplegar a producción
+
+# Manual deploy to production. It uses the image published from main and the Environment ms08-prod
+# (with required reviewers). For test the deploy is automatic from ci.yml.
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "sha-xxxxxxx (vacío = la imagen del HEAD de main)"
+        required: false
+        type: string
+
+jobs:
+  prod:
+    uses: ./.github/workflows/deploy.yml
+    with:
+      entorno: prod
+      ref: main
+      tag: ${{ inputs.tag }}
+    permissions:
+      contents: read
+      packages: read
+    secrets: inherit

@@ -1,0 +1,46 @@
+spring:
+  application:
+    name: ms08-analytics-and-audit
+  jackson:
+    deserialization:
+      # Unknown fields in a request body give 400 (audit contract, section 12).
+      # Spring Boot turns this off by default, so it is turned on here.
+      fail-on-unknown-properties: true
+  mongodb:
+    # Local default points to the docker compose in infra/. In production the URI is a secret
+    # and comes only from the environment (never from the repository).
+    uri: ${MONGODB_URI:mongodb://localhost:27017/campusseguro_audit}
+
+server:
+  port: ${SERVER_PORT:8088}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        # Only the health check is public (the Gateway integration guide asks for it).
+        include: health
+  endpoint:
+    health:
+      show-details: never
+      # The Gateway standards ask for exactly {"status":"UP"} (no "groups" field).
+      probes:
+        enabled: false
+
+logging:
+  level:
+    # Level of this service's own logs; set LOG_LEVEL=DEBUG to see every stored fact.
+    edu.eci.dosw.campusseguro.audit: ${LOG_LEVEL:INFO}
+  pattern:
+    # Every log line shows the correlation id of the request.
+    level: "%5p [%X{correlation_id:-}]"
+
+app:
+  timezone: ${APP_TIMEZONE:America/Bogota}
+  audit:
+    # Audit records are kept 6 months.
+    retention-days: ${AUDIT_RETENTION_DAYS:180}
+    # MongoDB deletes old records by itself with a TTL index on fecha_hora.
+    ttl-index-enabled: ${AUDIT_TTL_INDEX_ENABLED:true}
+    # Fallback if the database does not support TTL: daily delete job (also turn the TTL index off).
+    cleanup-job-enabled: ${AUDIT_CLEANUP_JOB_ENABLED:false}
